@@ -1,27 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const Request = require('../models/Request');
+const requestController = require('../controllers/requestController');
+const { protect } = require('../middleware/authMiddleware');
 
-// নতুন আবেদন তৈরি
-router.post('/', async (req, res) => {
-  try {
-    const newRequest = new Request(req.body);
-    await newRequest.save();
-    res.status(201).json({ message: 'আবেদন সফলভাবে জমা হয়েছে!' });
-  } catch (error) {
-    console.error("Request Submit Error:", error);
-    res.status(500).json({ message: 'আবেদন পাঠাতে সমস্যা হয়েছে' });
-  }
-});
+// ১. নতুন আবেদন তৈরি (Authentication সহ)
+// URL: POST /api/requests/create
+router.post('/create', protect, requestController.createRequest);
 
-// সকল আবেদন পাওয়া
-router.get('/', async (req, res) => {
-  try {
-    const requests = await Request.find().sort({ createdAt: -1 });
-    res.status(200).json(requests);
-  } catch (error) {
-    res.status(500).json({ message: 'ডেটা পেতে সমস্যা হয়েছে' });
-  }
-});
+// ২. সকল পেন্ডিং আবেদন দেখা (ফিল্টার ও সার্চ সুবিধা সহ)
+// URL: GET /api/requests
+router.get('/', requestController.getRequests);
+
+// ৩. রক্তের আবেদনের বিপরীতে ডোনারের সাড়া পাঠানো
+// URL: POST /api/requests/respond/:id
+router.post('/respond/:id', protect, requestController.respondToRequest);
 
 module.exports = router;

@@ -1,9 +1,8 @@
 const Request = require('../models/Request');
 
-// ১. নতুন রক্তের আবেদন তৈরি
-const createRequest = async (req, res) => {
+// ১. নতুন রক্তের আবেদন তৈরি করা
+exports.createRequest = async (req, res) => {
   try {
-    // Client কোন ভাষায় ডাটা চাচ্ছে তা নির্ধারণ করা (Header বা Query থেকে)
     const lang = req.headers['accept-language'] || req.query.lang || 'en';
 
     const {
@@ -15,109 +14,114 @@ const createRequest = async (req, res) => {
       donationDate,
       location,
       phone,
-      reference
+      contactPhone,
+      reference,
+      urgency
     } = req.body;
 
-    // Validation (তথ্য খালি থাকলে ভাষা অনুযায়ী মেসেজ দেওয়া)
-    if (
-      !problem ||
-      !bloodGroup ||
-      !hemoglobin ||
-      !unitsNeeded ||
-      !donationTime ||
-      !donationDate ||
-      !location ||
-      !phone
-    ) {
+    const targetPhone = phone || contactPhone;
+
+    // তথ্য ভ্যালিডেশন
+    if (!problem || !bloodGroup || !hemoglobin || !unitsNeeded || !donationDate || !location || !targetPhone) {
       return res.status(400).json({
+        success: false,
         message: lang.startsWith('bn')
           ? 'অনুগ্রহ করে সকল আবশ্যক তথ্য সঠিকভাবে পূরণ করুন।'
           : 'Please fill in all required fields.'
       });
     }
 
+    // ডাটাবেজে নতুন রিকোয়েস্ট সেভ
     const newRequest = await Request.create({
+      requester: req.user ? req.user._id : null,
       problem,
       bloodGroup,
       hemoglobin,
       unitsNeeded,
-      donationTime,
+      donationTime: donationTime || '',
       donationDate,
       location,
-      phone,
-      reference: reference || (lang.startsWith('bn') ? 'নাই' : 'N/A')
+      contactPhone: targetPhone,
+      reference: reference || '',
+      urgency: urgency || 'Normal'
     });
 
-    // ভাষা অনুযায়ী Response Object সাজানো
-    const responseData = lang.startsWith('bn')
-      ? {
-          "রোগীর সমস্যা": newRequest.problem,
-          "রক্তের গ্রুপ": newRequest.bloodGroup,
-          "হিমোগ্লোবিন": newRequest.hemoglobin,
-          "রক্তের পরিমাণ": newRequest.unitsNeeded,
-          "রক্তদানের সময়": newRequest.donationTime,
-          "রক্তদানের তারিখ": newRequest.donationDate,
-          "রক্তদানের স্থান": newRequest.location,
-          "যোগাযোগ": newRequest.phone,
-          "রেফারেন্স": newRequest.reference,
-          "_id": newRequest._id,
-          "createdAt": newRequest.createdAt
-        }
-      : {
-          problem: newRequest.problem,
-          bloodGroup: newRequest.bloodGroup,
-          hemoglobin: newRequest.hemoglobin,
-          unitsNeeded: newRequest.unitsNeeded,
-          donationTime: newRequest.donationTime,
-          donationDate: newRequest.donationDate,
-          location: newRequest.location,
-          phone: newRequest.phone,
-          reference: newRequest.reference,
-          _id: newRequest._id,
-          createdAt: newRequest.createdAt
-        };
-
-    res.status(201).json({
-      message: lang.startsWith('bn')
-        ? 'রক্তের আবেদন সফলভাবে তৈরি হয়েছে'
-        : 'Blood request created successfully',
-      data: responseData
+    // আপনার কাঙ্ক্ষিত রেসপন্স ফরম্যাট
+    return res.status(201).json({
+      success: true,
+      message: lang.startsWith('bn') ? 'রক্তের আবেদন সফলভাবে তৈরি হয়েছে' : 'Blood request created successfully',
+      request: {
+        id: newRequest._id,
+        problem: newRequest.problem,
+        bloodGroup: newRequest.bloodGroup,
+        hemoglobin: newRequest.hemoglobin,
+        unitsNeeded: newRequest.unitsNeeded,
+        donationTime: newRequest.donationTime,
+        donationDate: newRequest.donationDate,
+        location: newRequest.location,
+        phone: newRequest.contactPhone,
+        reference: newRequest.reference
+      }
     });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
 // ২. সকল রক্তের আবেদন দেখা
-const getRequests = async (req, res) => {
+exports.getRequests = async (req, res) => {
   try {
-    const lang = req.headers['accept-language'] || req.query.lang || 'en';
-    const requests = await Request.find().sort({ createdAt: -1 });
+    const { bloodGroup, location, urgency } = req.query;
+    let filter = { status: 'Pending' };
 
-    const formattedRequests = requests.map(reqItem => {
-      if (lang.startsWith('bn')) {
-        return {
-          "রোগীর সমস্যা": reqItem.problem,
-          "রক্তের গ্রুপ": reqItem.bloodGroup,
-          "হিমোগ্লোবিন": reqItem.hemoglobin,
-          "রক্তের পরিমাণ": reqItem.unitsNeeded,
-          "রক্তদানের সময়": reqItem.donationTime,
-          "রক্তদানের তারিখ": reqItem.donationDate,
-          "রক্তদানের স্থান": reqItem.location,
-          "যোগাযোগ": reqItem.phone,
-          "রেফারেন্স": reqItem.reference,
-          "_id": reqItem._id,
-          "createdAt": reqItem.createdAt
-        };
-      }
-      return reqItem;
+    if (bloodGroup) filter.bloodGroup = bloodGroup;
+    if (urgency) filter.urgency = urgency;
+    if (location) filter.location = { $regex: location, $options: 'i' };
+
+    const requests = await Request.find(filter)
+      .populate('requester', 'name phone location')
+      .sort({ createdAt: -1 });
+
+    return res.status(200).json({
+      success: true,
+      count: requests.length,
+      requests
     });
-
-    res.status(200).json(formattedRequests);
   } catch (error) {
-    res.status(500).json({ message: error.message });
+    return res.status(500).json({ success: false, message: error.message });
   }
 };
 
-module.exports = { createRequest, getRequests };
+// ৩. ডোনারের সাড়া (Response) পাঠানো
+exports.respondToRequest = async (req, res) => {
+  try {
+    const { message, sharePhoneWithRequester } = req.body;
+    const request = await Request.findById(req.params.id);
+
+    if (!request) {
+      return res.status(404).json({ message: "রিকোয়েস্টটি পাওয়া যায়নি!" });
+    }
+
+    if (request.status !== 'Pending') {
+      return res.status(400).json({ message: "এই রিকোয়েস্টটি আর গ্রহণ করা সম্ভব নয়।" });
+    }
+
+    if (req.user && request.requester && request.requester.toString() === req.user._id.toString()) {
+      return res.status(400).json({ message: "আপনি নিজের রিকোয়েস্টে নিজেই রেসপন্স করতে পারবেন না!" });
+    }
+
+    request.responses.push({
+      donor: req.user._id,
+      donorPhone: req.user.phone,
+      sharePhoneWithRequester: sharePhoneWithRequester !== undefined ? sharePhoneWithRequester : true,
+      message: message || ''
+    });
+
+    await request.save();
+    return res.status(200).json({ success: true, message: "আপনার সাড়া সফলভাবে পাঠানো হয়েছে!", request });
+
+  } catch (error) {
+    return res.status(500).json({ success: false, message: error.message });
+  }
+};
