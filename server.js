@@ -10,9 +10,10 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
-app.use('/uploads', express.static('uploads'));
+// Uploads ফোল্ডারকে পাবলিক করার জন্য static middleware
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Multer Storage Configuration (for profile image upload)
+// Multer Storage Configuration (ছবি আপলোডের জন্য)
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, 'uploads/'),
   filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
@@ -63,7 +64,7 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
   try {
     const { name, email, phone, bloodGroup, address, password } = req.body;
 
-    const existingUser = await User.findOne({ phone });
+    const existingUser = await User.findOne({ phone: phone?.trim() });
     if (existingUser) {
       return res.status(400).json({ message: 'এই ফোন নম্বর দিয়ে ইতিপূর্বে রেজিস্ট্রেশন করা হয়েছে!' });
     }
@@ -71,10 +72,10 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
     const newUser = new User({
       name,
       email,
-      phone,
+      phone: phone?.trim(),
       bloodGroup,
       address,
-      password,
+      password: password?.trim(),
       imageUrl: req.file ? `/uploads/${req.file.filename}` : ''
     });
 
@@ -90,7 +91,10 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
 app.post('/api/login', async (req, res) => {
   try {
     const { phone, password } = req.body;
-    const user = await User.findOne({ phone, password });
+    const cleanPhone = phone ? phone.trim() : '';
+    const cleanPassword = password ? password.trim() : '';
+
+    const user = await User.findOne({ phone: cleanPhone, password: cleanPassword });
 
     if (!user) {
       return res.status(400).json({ message: 'মোবাইল নম্বর বা পাসওয়ার্ড ভুল!' });
