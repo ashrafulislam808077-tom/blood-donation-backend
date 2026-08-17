@@ -1,42 +1,70 @@
 const express = require('express');
-const dotenv = require('dotenv');
+const mongoose = require('mongoose');
 const cors = require('cors');
-const connectDB = require('./config/db'); // আপনার তৈরি করা db.js কানেকশন
-
-// ১. Environment Variables লোড করা
-dotenv.config();
+require('dotenv').config();
 
 const app = express();
 
-// ২. ডাটাবেজ কানেক্ট করা
-connectDB();
-
-// ৩. মিডলওয়্যার কনফিগারেশন
+// Middleware
 app.use(cors());
 app.use(express.json());
 
-// ৪. রুটের ইমপোর্টসমূহ (Routes Import)
-const authRoutes = require('./routes/authRoutes');
-const donorRoutes = require('./routes/donorRoutes');
-const requestRoutes = require('./routes/requestRoutes');
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://YOUR_MONGO_URI_HERE')
+  .then(() => console.log('MongoDB Connected Successfully'))
+  .catch(err => console.error('MongoDB Connection Error:', err));
 
-// ৫. এপিআই রুট ব্যবহার (Routes Usage)
-app.use('/api/auth', authRoutes);
-app.use('/api/donors', donorRoutes);
-app.use('/api/requests', requestRoutes);
-
-// ৬. বেসিক টেস্ট রুট (Health Check)
-app.get('/', (req, res) => {
-  res.send('Blood Donation App API চালু রয়েছে!');
+// Mongoose Schema & Models
+const requestSchema = new mongoose.Schema({
+  patientName: { type: String, required: true },
+  problem: { type: String },
+  bloodGroup: { type: String, required: true },
+  hemoglobin: { type: String },
+  amount: { type: String, required: true },
+  donationDate: { type: String, required: true },
+  donationPlace: { type: String, required: true },
+  contactPhone: { type: String, required: true },
+  reference: { type: String },
+  createdAt: { type: Date, default: Date.now }
 });
 
-// ৭. ভুল বা অজানা রুটের জন্য হ্যান্ডলার (404 Not Found)
-app.use((req, res, next) => {
+const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
+
+// --- API ROUTES ---
+
+// 1. Get All Blood Requests
+app.get('/api/requests', async (req, res) => {
+  try {
+    const requests = await Request.find().sort({ createdAt: -1 });
+    res.status(200).json(requests);
+  } catch (err) {
+    console.error("Fetch Requests Error:", err);
+    res.status(500).json({ message: 'রিকোয়েস্টগুলো লোড করতে সমস্যা হয়েছে!' });
+  }
+});
+
+// 2. Post New Blood Request
+app.post('/api/requests', async (req, res) => {
+  try {
+    console.log("Received Request Data:", req.body);
+    const newRequest = new Request(req.body);
+    await newRequest.save();
+    res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!' });
+  } catch (err) {
+    console.error("Create Request Error:", err);
+    res.status(500).json({ message: 'আবেদন জমা দিতে সমস্যা হয়েছে!', error: err.message });
+  }
+});
+
+// Test Root Route
+app.get('/', (req, res) => {
+  res.send('Blood Donation API Server is Running...');
+});
+
+// 404 Handler for Unmatched Routes
+app.use((req, res) => {
   res.status(404).json({ message: 'অনুরোধকৃত রুটটি পাওয়া যায়নি!' });
 });
 
-// ৮. সার্ভার চালুকরণ
 const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log(`সার্ভারটি পোর্ট ${PORT}-এ সফলভাবে চালু হয়েছে।`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
