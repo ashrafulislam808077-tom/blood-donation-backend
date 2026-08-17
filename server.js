@@ -6,33 +6,20 @@ const path = require('path');
 
 const app = express();
 
-// ১. CORS মিডলওয়্যার কনফিগারেশন (Netlify এবং Localhost এলাউ করার জন্য)
-const allowedOrigins = [
-  'https://juboshokti-blood-donation-app.netlify.app',
-  'http://localhost:5173',
-  'http://localhost:3000'
-];
-
+// ১. CORS কনফিগারেশন
 app.use(cors({
-  origin: function (origin, callback) {
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
-    } else {
-      callback(null, true); // সব ধরনের ক্লায়েন্ট রিকোয়েস্টের জন্য সহজ সমাধান
-    }
-  },
+  origin: '*', // সব অরিজিন বা Netlify এলাউ করবে
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
-  credentials: true
+  allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// ইমেজ এক্সেস করার জন্য Static Folder Setup
+// স্ট্যাটিক ইমেজ এক্সেস
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ২. Multer ফাইল আপলোড কনফিগারেশন
+// ২. Multer ইমেজ আপলোড সেটিংস
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -43,7 +30,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ৩. Mongoose Schema এবং Model Setup
+// ৩. Mongoose Schema
 const donorSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: String,
@@ -70,21 +57,21 @@ const requestSchema = new mongoose.Schema({
 const Donor = mongoose.models.Donor || mongoose.model('Donor', donorSchema);
 const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
 
-// ৪. API Endpoints
+// ৪. Endpoints
 
-// রক্তদানের আবেদন জমা
+// রক্তদানের আবেদন
 app.post('/api/requests', async (req, res) => {
   try {
     const newRequest = new Request(req.body);
     await newRequest.save();
     res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!' });
   } catch (err) {
-    console.error('Request Submit Error:', err);
+    console.error('Request Error:', err);
     res.status(500).json({ error: 'আবেদন জমা নিতে সমস্যা হয়েছে!', message: err.message });
   }
 });
 
-// সকল আবেদনের তালিকা
+// সকল আবেদন
 app.get('/api/requests', async (req, res) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 });
@@ -94,7 +81,7 @@ app.get('/api/requests', async (req, res) => {
   }
 });
 
-// ডোনার রেজিস্ট্রেশন (ছবিসহ)
+// ডোনার রেজিস্ট্রেশন
 app.post('/api/register', upload.single('image'), async (req, res) => {
   try {
     const { name, email, phone, bloodGroup, address, password } = req.body;
@@ -124,7 +111,7 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
   }
 });
 
-// ডোনার খোঁজা (Blood Group Filter)
+// ডোনার তালিকা
 app.get('/api/donors', async (req, res) => {
   try {
     const group = req.query.group;
@@ -149,7 +136,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// MongoDB সংযোগ এবং সার্ভার স্টার্ট
+// Database Connection & Listen
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'আপনার_MONGODB_URI_এখানে_দিন';
 
