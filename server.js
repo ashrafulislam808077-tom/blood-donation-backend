@@ -39,8 +39,9 @@ const userSchema = new mongoose.Schema({
 });
 const User = mongoose.models.User || mongoose.model('User', userSchema);
 
-// 2. Request Schema
+// 2. Request Schema (reqNo সহ)
 const requestSchema = new mongoose.Schema({
+  reqNo: { type: Number },
   patientName: { type: String, required: true },
   problem: { type: String },
   bloodGroup: { type: String, required: true },
@@ -57,7 +58,7 @@ const Request = mongoose.models.Request || mongoose.model('Request', requestSche
 
 // --- API ROUTES ---
 
-// Registration Route
+// 1. Registration Route
 app.post('/api/register', upload.single('image'), async (req, res) => {
   try {
     const { name, email, phone, bloodGroup, address, password } = req.body;
@@ -85,7 +86,7 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
   }
 });
 
-// Login Route
+// 2. Login Route
 app.post('/api/login', async (req, res) => {
   try {
     const { phone, password } = req.body;
@@ -102,7 +103,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Get Donors Route
+// 3. Get Donors Route
 app.get('/api/donors', async (req, res) => {
   try {
     const { group } = req.query;
@@ -114,7 +115,7 @@ app.get('/api/donors', async (req, res) => {
   }
 });
 
-// Get All Blood Requests Route
+// 4. Get All Blood Requests Route
 app.get('/api/requests', async (req, res) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 });
@@ -124,13 +125,21 @@ app.get('/api/requests', async (req, res) => {
   }
 });
 
-// Post New Blood Request Route
+// 5. Post New Blood Request Route (reqNo সহ)
 app.post('/api/requests', async (req, res) => {
   try {
-    const newRequest = new Request(req.body);
+    const totalRequests = await Request.countDocuments();
+    const nextReqNo = totalRequests + 1;
+
+    const newRequest = new Request({
+      ...req.body,
+      reqNo: nextReqNo
+    });
+
     await newRequest.save();
-    res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!' });
+    res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!', reqNo: nextReqNo });
   } catch (err) {
+    console.error("Create Request Error:", err);
     res.status(500).json({ message: 'আবেদন জমা দিতে সমস্যা হয়েছে!', error: err.message });
   }
 });
