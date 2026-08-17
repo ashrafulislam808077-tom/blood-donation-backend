@@ -1,6 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const multer = require('multer');
+const path = require('path');
 require('dotenv').config();
 
 const app = express();
@@ -8,13 +10,36 @@ const app = express();
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use('/uploads', express.static('uploads'));
+
+// Multer Storage Configuration (for profile image upload)
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, 'uploads/'),
+  filename: (req, file, cb) => cb(null, Date.now() + '-' + file.originalname)
+});
+const upload = multer({ storage });
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI || 'mongodb+srv://YOUR_MONGO_URI_HERE')
   .then(() => console.log('MongoDB Connected Successfully'))
   .catch(err => console.error('MongoDB Connection Error:', err));
 
-// Mongoose Schema & Models
+// --- Schemas & Models ---
+
+// 1. User/Donor Schema
+const userSchema = new mongoose.Schema({
+  name: { type: String, required: true },
+  email: { type: String },
+  phone: { type: String, required: true, unique: true },
+  bloodGroup: { type: String, required: true },
+  address: { type: String, required: true },
+  password: { type: String, required: true },
+  imageUrl: { type: String },
+  createdAt: { type: Date, default: Date.now }
+});
+const User = mongoose.models.User || mongoose.model('User', userSchema);
+
+// 2. Request Schema
 const requestSchema = new mongoose.Schema({
   patientName: { type: String, required: true },
   problem: { type: String },
@@ -27,41 +52,95 @@ const requestSchema = new mongoose.Schema({
   reference: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
-
 const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
+
 
 // --- API ROUTES ---
 
-// 1. Get All Blood Requests
+// Registration Route
+app.post('/api/register', upload.single('image'), async (req, res) => {
+  try {
+    const { name, email, phone, bloodGroup, address, password } = req.body;
+
+    const existingUser = await User.findOne({ phone });
+    if (existingUser) {
+      return res.status(400).json({ message: 'এই ফোন নম্বর দিয়ে ইতিপূর্বে রেজিস্ট্রেশন করা হয়েছে!' });
+    }
+
+    const newUser = new User({
+      name,
+      email,
+      phone,
+      bloodGroup,
+      address,
+      password,
+      imageUrl: req.file ? `/uploads/${req.file.filename}` : ''
+    });
+
+    await newUser.save();
+    res.status(201).json({ message: 'রেজিস্ট্রেশন সফল হয়েছে!' });
+  } catch (err) {
+    console.error("Register Error:", err);
+    res.status(500).json({ message: 'রেজিস্ট্রেশন করতে সমস্যা হয়েছে!', error: err.message });
+  }
+});
+
+// Login Route
+app.post('/api/login', async (req, res) => {
+  try {
+    const { phone, password } = req.body;
+    const user = await User.findOne({ phone, password });
+
+    if (!user) {
+      return res.status(400).json({ message: 'মোবাইল নম্বর বা পাসওয়ার্ড ভুল!' });
+    }
+
+    res.status(200).json({ message: 'লগইন সফল হয়েছে!', user });
+  } catch (err) {
+    console.error("Login Error:", err);
+    res.status(500).json({ message: 'লগইন করতে সমস্যা হয়েছে!' });
+  }
+});
+
+// Get Donors Route
+app.get('/api/donors', async (req, res) => {
+  try {
+    const { group } = req.query;
+    const filter = group ? { bloodGroup: group } : {};
+    const donors = await User.find(filter).select('-password');
+    res.status(200).json(donors);
+  } catch (err) {
+    res.status(500).json({ message: 'ডোনারদের তালিকা পেতে সমস্যা হয়েছে!' });
+  }
+});
+
+// Get All Blood Requests Route
 app.get('/api/requests', async (req, res) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 });
     res.status(200).json(requests);
   } catch (err) {
-    console.error("Fetch Requests Error:", err);
     res.status(500).json({ message: 'রিকোয়েস্টগুলো লোড করতে সমস্যা হয়েছে!' });
   }
 });
 
-// 2. Post New Blood Request
+// Post New Blood Request Route
 app.post('/api/requests', async (req, res) => {
   try {
-    console.log("Received Request Data:", req.body);
     const newRequest = new Request(req.body);
     await newRequest.save();
     res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!' });
   } catch (err) {
-    console.error("Create Request Error:", err);
     res.status(500).json({ message: 'আবেদন জমা দিতে সমস্যা হয়েছে!', error: err.message });
   }
 });
 
-// Test Root Route
+// Root Route
 app.get('/', (req, res) => {
   res.send('Blood Donation API Server is Running...');
 });
 
-// 404 Handler for Unmatched Routes
+// 404 Handler
 app.use((req, res) => {
   res.status(404).json({ message: 'অনুরোধকৃত রুটটি পাওয়া যায়নি!' });
 });
