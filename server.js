@@ -13,20 +13,20 @@ if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ২. CORS কনফিগারেশন (সঠিক Express v5+ সিনট্যাক্স সহ)
+// ২. CORS কনফিগারেশন
 app.use(cors({
   origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// CORS Preflight রিলেটেড ক্র্যাশ ফিক্স করার জন্য
+// Express v5+ সামঞ্জস্যপূর্ণ CORS Preflight হ্যান্ডলার
 app.options('(.*)', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// স্ট্যাটিক ইমেজ সার্ভ করার নিয়ম
+// স্ট্যাটিক ইমেজ অ্যাক্সেস
 app.use('/uploads', express.static(uploadDir));
 
 // ৩. Multer ইমেজ আপলোড কনফিগারেশন
