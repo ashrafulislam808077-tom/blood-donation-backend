@@ -1,10 +1,12 @@
 const express = require('express');
 const cors = require('cors');
+const mongoose = require('mongoose');
+require('dotenv').config(); // Environment Variables ব্যবহারের জন্য
 
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// ১. CORS কনফিগারেশন
+// ১. CORS কনফিগারেশন (Error Fix)
 const allowedOrigins = [
   'https://juboshokti-blood-donation-app.netlify.app',
   'http://localhost:5173',
@@ -25,32 +27,35 @@ app.use(cors({
   credentials: true
 }));
 
-// Express v5 / Path-to-Regexp compatible wildcard preflight
-app.options('/(.*)/', cors());
-
-// ২. Body Parser Middleware
+// ২. Middlewares
 app.use(express.json());
 
-// ৩. টেস্ট রুট
+// ৩. Database Connection (MongoDB)
+// (আপনার URI থাকলে বসান, অথবা .env ফাইল থেকে নিন)
+const mongoURI = process.env.MONGODB_URI || "YOUR_MONGODB_CONNECTION_STRING"; 
+
+mongoose.connect(mongoURI)
+  .then(() => console.log('MongoDB Connected Successfully'))
+  .catch(err => console.error('MongoDB Connection Error:', err));
+
+// ৪. Root / Health Check Route
 app.get('/', (req, res) => {
   res.send('Blood Donation Backend Server is Running!');
 });
 
-// ৪. আপনার API Routes
-app.get('/api/donors', (req, res) => {
-  res.json({ message: "Donors route working" });
-});
+// ৫. আপনার আসল Routes (Routes ফোল্ডার থাকলে সেগুলোকে Import করে যুক্ত করুন)
+// উদাহরণ:
+// const donorRoutes = require('./routes/donorRoutes');
+// const requestRoutes = require('./routes/requestRoutes');
+// app.use('/api/donors', donorRoutes);
+// app.use('/api/requests', requestRoutes);
 
-app.get('/api/requests', (req, res) => {
-  res.json({ message: "Requests route working" });
-});
-
-// ৫. 404 রুট হ্যান্ডলার
+// ৬. 404 Route Handler
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "API Route Not Found" });
 });
 
-// ৬. সার্ভার লিসেনিং
+// ৭. Server Listening
 app.listen(PORT, () => {
-  console.log(`Server is running on port ${PORT}`);
+  console.log(`Server running on port ${PORT}`);
 });
