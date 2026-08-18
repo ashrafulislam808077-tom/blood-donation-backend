@@ -6,20 +6,23 @@ const path = require('path');
 
 const app = express();
 
-// ১. CORS কনফিগারেশন
+// ১. CORS কনফিগারেশন (Netlify এবং Localhost থেকে আসা সব রিকোয়েস্ট অ্যালাউ করার জন্য)
 app.use(cors({
-  origin: '*', // সব অরিজিন বা Netlify এলাউ করবে
+  origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
+// Preflight Request (OPTIONS) হ্যান্ডেল করার জন্য
+app.options('*', cors());
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// স্ট্যাটিক ইমেজ এক্সেস
+// স্ট্যাটিক ইমেজ অ্যাক্সেস করার জন্য ফোল্ডার সেটআপ
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ২. Multer ইমেজ আপলোড সেটিংস
+// ২. Multer দিয়ে ফাইল/ছবি আপলোড কনফিগারেশন
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -30,7 +33,7 @@ const storage = multer.diskStorage({
 });
 const upload = multer({ storage });
 
-// ৩. Mongoose Schema
+// ৩. Mongoose Schema এবং Model
 const donorSchema = new mongoose.Schema({
   name: { type: String, required: true },
   email: String,
@@ -57,12 +60,26 @@ const requestSchema = new mongoose.Schema({
 const Donor = mongoose.models.Donor || mongoose.model('Donor', donorSchema);
 const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
 
-// ৪. Endpoints
+// ৪. API Endpoints
 
-// রক্তদানের আবেদন
+// রক্তদানের আবেদন জমা
 app.post('/api/requests', async (req, res) => {
   try {
-    const newRequest = new Request(req.body);
+    const { patientName, problem, bloodGroup, hemoglobin, units, amount, donationDate, donationPlace, contactPhone, reference } = req.body;
+
+    const newRequest = new Request({
+      patientName: patientName || 'অজ্ঞাত রোগী',
+      problem: problem || '',
+      bloodGroup: bloodGroup || 'A+',
+      hemoglobin: hemoglobin || '',
+      units: units || amount || '1',
+      amount: amount || units || '1',
+      donationDate: donationDate || 'জরুরী',
+      donationPlace: donationPlace || 'কিশোরগঞ্জ',
+      contactPhone: contactPhone || '',
+      reference: reference || ''
+    });
+
     await newRequest.save();
     res.status(201).json({ message: 'রক্তের আবেদন সফলভাবে জমা হয়েছে!' });
   } catch (err) {
@@ -71,7 +88,7 @@ app.post('/api/requests', async (req, res) => {
   }
 });
 
-// সকল আবেদন
+// সকল রক্তের রিকোয়েস্ট তালিকা
 app.get('/api/requests', async (req, res) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 });
@@ -81,7 +98,7 @@ app.get('/api/requests', async (req, res) => {
   }
 });
 
-// ডোনার রেজিস্ট্রেশন
+// ডোনার রেজিস্ট্রেশন (ছবিসহ)
 app.post('/api/register', upload.single('image'), async (req, res) => {
   try {
     const { name, email, phone, bloodGroup, address, password } = req.body;
@@ -111,7 +128,7 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
   }
 });
 
-// ডোনার তালিকা
+// ডোনার খোঁজা (Blood Group Filter)
 app.get('/api/donors', async (req, res) => {
   try {
     const group = req.query.group;
@@ -136,7 +153,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Database Connection & Listen
+// Database Connection & Server Startup
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'আপনার_MONGODB_URI_এখানে_দিন';
 
