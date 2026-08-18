@@ -7,28 +7,29 @@ const fs = require('fs');
 
 const app = express();
 
-// ১. uploads ফোল্ডার না থাকলে স্বয়ংক্রিয়ভাবে তৈরি করবে
+// ১. uploads ফোল্ডার প্রস্তুতকরণ
 const uploadDir = path.join(__dirname, 'uploads');
 if (!fs.existsSync(uploadDir)) {
   fs.mkdirSync(uploadDir, { recursive: true });
 }
 
-// ২. CORS কনফিগারেশন (Netlify এবং অন্যান্য সকল রিকোয়েস্ট অ্যালাউ করার জন্য)
+// ২. CORS কনফিগারেশন (সঠিক Express v5+ সিনট্যাক্স সহ)
 app.use(cors({
   origin: '*', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-app.options('*', cors());
+// CORS Preflight রিলেটেড ক্র্যাশ ফিক্স করার জন্য
+app.options('(.*)', cors());
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// স্ট্যাটিক ইমেজ অ্যাক্সেস করার জন্য ফোল্ডার সেটআপ
+// স্ট্যাটিক ইমেজ সার্ভ করার নিয়ম
 app.use('/uploads', express.static(uploadDir));
 
-// ৩. Multer দিয়ে ফাইল/ছবি আপলোড কনফিগারেশন
+// ৩. Multer ইমেজ আপলোড কনফিগারেশন
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     cb(null, 'uploads/');
@@ -68,7 +69,7 @@ const Request = mongoose.models.Request || mongoose.model('Request', requestSche
 
 // ৫. API Endpoints
 
-// রক্তদানের আবেদন জমা
+// রক্তের আবেদন তৈরি
 app.post('/api/requests', async (req, res) => {
   try {
     const { patientName, problem, bloodGroup, hemoglobin, units, amount, donationDate, donationPlace, contactPhone, reference } = req.body;
@@ -94,7 +95,7 @@ app.post('/api/requests', async (req, res) => {
   }
 });
 
-// সকল রক্তের রিকোয়েস্ট তালিকা
+// সকল রক্তের রিকোয়েস্ট দেখা
 app.get('/api/requests', async (req, res) => {
   try {
     const requests = await Request.find().sort({ createdAt: -1 });
@@ -104,7 +105,7 @@ app.get('/api/requests', async (req, res) => {
   }
 });
 
-// ডোনার রেজিস্ট্রেশন (ছবিসহ)
+// ডোনার রেজিস্ট্রেশন
 app.post('/api/register', upload.single('image'), async (req, res) => {
   try {
     const { name, email, phone, bloodGroup, address, password } = req.body;
@@ -134,7 +135,7 @@ app.post('/api/register', upload.single('image'), async (req, res) => {
   }
 });
 
-// ডোনার খোঁজা (Blood Group Filter)
+// ডোনার লিস্ট খোঁজা
 app.get('/api/donors', async (req, res) => {
   try {
     const group = req.query.group;
@@ -159,7 +160,7 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// Database Connection & Server Startup
+// ডাটাবেজ কানেকশন এবং পোর্ট স্টার্ট
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858696@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
 
