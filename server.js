@@ -2,7 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-require('dotenv').config();
 
 const donorRoutes = require('./routes/donorRoutes');
 const requestRoutes = require('./routes/requestRoutes');
@@ -15,7 +14,7 @@ app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // ডাটাবেস কানেকশন
-const MONGO_URI = process.env.MONGO_URI || 'YOUR_MONGODB_URI_HERE';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858696@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB database connected successfully!'))
@@ -25,7 +24,7 @@ mongoose.connect(MONGO_URI)
 app.use('/api', donorRoutes);
 app.use('/api/requests', requestRoutes);
 
-// টেস্ট রুটিং
+// টেস্ট রাউটিং
 app.get('/', (req, res) => {
   res.send('Blood Donation Backend Server is Running...');
 });
