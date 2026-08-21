@@ -67,7 +67,12 @@ const requestSchema = new mongoose.Schema({
 const Donor = mongoose.models.Donor || mongoose.model('Donor', donorSchema);
 const Request = mongoose.models.Request || mongoose.model('Request', requestSchema);
 
-// ৫. API Endpoints
+// ৫. Root Endpoint (Render স্বাস্থ্য পরীক্ষার জন্য)
+app.get('/', (req, res) => {
+  res.send('Blood Donation Backend Server is Running!');
+});
+
+// ৬. API Endpoints
 
 // রক্তের আবেদন তৈরি
 app.post('/api/requests', async (req, res) => {
@@ -160,13 +165,15 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-// ডাটাবেজ কানেকশন এবং পোর্ট স্টার্ট
+// ৭. ডাটাবেজ কানেকশন এবং পোর্ট স্টার্ট
 const PORT = process.env.PORT || 5000;
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858696@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
 
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log('MongoDB Connected Successfully');
-    app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
-  })
-  .catch(err => console.error('MongoDB Connection Error:', err));
+// Render-এর জন্য 0.0.0.0 পোর্টে লিসেন করা আবশ্যিক
+app.listen(PORT, '0.0.0.0', () => {
+  console.log(`Server running on port ${PORT}`);
+  
+  mongoose.connect(MONGO_URI)
+    .then(() => console.log('MongoDB Connected Successfully'))
+    .catch(err => console.error('MongoDB Connection Error:', err));
+});
