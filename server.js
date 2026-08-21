@@ -13,8 +13,8 @@ app.use(cors());
 app.use(express.json());
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// ডাটাবেস কানেকশন
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858696@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
+// ডাটাবেস কানেকশন (আপডেট করা পাসওয়ার্ডসহ)
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858636@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('MongoDB database connected successfully!'))
