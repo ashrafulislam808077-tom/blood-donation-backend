@@ -2,39 +2,35 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const path = require('path');
-const fs = require('fs');
+require('dotenv').config();
 
-const authRoutes = require('./routes/authRoutes');
 const donorRoutes = require('./routes/donorRoutes');
 const requestRoutes = require('./routes/requestRoutes');
 
 const app = express();
 
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-  fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-app.use(cors({ origin: '*', methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'] }));
+// মিডলওয়্যার
+app.use(cors());
 app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-app.use('/uploads', express.static(uploadDir));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Routes Configuration
-app.use('/api', authRoutes);
-app.use('/api/donors', donorRoutes);
+// ডাটাবেস কানেকশন
+const MONGO_URI = process.env.MONGO_URI || 'YOUR_MONGODB_URI_HERE';
+
+mongoose.connect(MONGO_URI)
+  .then(() => console.log('MongoDB database connected successfully!'))
+  .catch((err) => console.error('MongoDB connection error:', err));
+
+// এপিআই রাউট
+app.use('/api', donorRoutes);
 app.use('/api/requests', requestRoutes);
 
+// টেস্ট রুটিং
 app.get('/', (req, res) => {
-  res.send('Blood Donation Backend Server Running!');
+  res.send('Blood Donation Backend Server is Running...');
 });
 
 const PORT = process.env.PORT || 5000;
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://ashrafulislam808077_db_user:858696@cluster0.p4pbe.mongodb.net/blood_donation?retryWrites=true&w=majority';
-
-mongoose.connect(MONGO_URI)
-  .then(() => {
-    console.log('MongoDB Connected Successfully');
-    app.listen(PORT, '0.0.0.0', () => console.log(`Server is running on port ${PORT}`));
-  })
-  .catch(err => console.error('MongoDB Connection Error:', err));
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
