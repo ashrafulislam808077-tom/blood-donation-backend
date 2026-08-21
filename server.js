@@ -20,7 +20,7 @@ app.use(cors({
   allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-// Express v5+ সামঞ্জস্যপূর্ণ CORS Preflight হ্যান্ডলার
+// Express Preflight হ্যান্ডলার
 app.options('(.*)', cors());
 
 app.use(express.json());
